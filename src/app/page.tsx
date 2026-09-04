@@ -146,19 +146,21 @@ export default function SmartFormPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
-      {/* Toast Notification */}
+      {/* Toast Notification Container */}
       {toast && (
         <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform ${
+          role="alert"
+          style={{ zIndex: 99999 }}
+          className={`fixed top-6 right-6 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-semibold transition-all duration-300 animate-bounce ${
             toast.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-200/50'
+              : 'bg-rose-600 text-white border-rose-500 shadow-rose-200/50'
           }`}
         >
           {toast.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-rose-600" />
+            <AlertCircle className="w-5 h-5 text-white shrink-0" />
           )}
           <span>{toast.message}</span>
         </div>
