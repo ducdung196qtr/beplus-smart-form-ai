@@ -101,21 +101,29 @@ export default function SmartFormPage() {
         showToast('success', `⚡ Extracted by Local Regex / Mock (${result.latencyMs}ms)!`);
       }
     } catch (err: any) {
-      // Fallback NLP Client-Side
+      // Fallback Client-Side
       const clean = inputText.trim();
-      const nameMatch = clean.match(/(?:i am|i'm|name is|this is|my name is)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/i);
-      const name = nameMatch ? nameMatch[1] : 'Professional Candidate';
+      const vnMatch = clean.match(/(?:tôi là|mình là|em là|anh là)\s+([A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*(?:\s+[A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*){0,3})/i);
+      const enMatch = clean.match(/(?:i am|i'm|name is|this is|my name is)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*){0,3})/i);
+      const subjMatch = clean.match(/^([A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*(?:\s+[A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*){0,3})\s+(?:là|is)/i);
+      const name = vnMatch?.[1] || enMatch?.[1] || subjMatch?.[1] || 'Candidate';
 
-      const KNOWN = ['WordPress', 'React', 'Vue', 'Next.js', 'API', 'AI', 'Node.js', 'TypeScript', 'Tailwind'];
-      const skills = KNOWN.filter(s => new RegExp(`\\b${s}\\b`, 'i').test(clean));
+      const KNOWN = ['WordPress', 'React', 'Vue', 'Next.js', 'API', 'AI', 'Node.js', 'TypeScript', 'Tailwind', 'CSS', 'HTML', 'JavaScript', 'UI/UX'];
+      const skills = KNOWN.filter(s => {
+        const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|[^a-zA-Z0-9_])${escaped}(?=[^a-zA-Z0-9_]|$)`, 'i').test(clean);
+      });
+
+      const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      const phoneMatch = clean.match(/(?:(?:\+84|0)(?:\s|\.)?[3|5|7|8|9]\d{8})|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
 
       setFormData({
         name,
-        title: clean.toLowerCase().includes('frontend') ? 'Frontend Developer' : 'Web Developer',
-        bio: clean,
-        skills: skills.length > 0 ? skills : ['WordPress', 'React'],
-        email: `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-        phone: '+1 (555) 123-4567',
+        title: /front[\s-]?end/i.test(clean) ? 'Front-end Developer' : clean.toLowerCase().includes('backend') ? 'Backend Engineer' : 'Software Engineer',
+        bio: clean.length > 320 ? clean.substring(0, 317) + '...' : clean,
+        skills: skills.length > 0 ? skills : ['Web Development'],
+        email: emailMatch ? emailMatch[0] : '',
+        phone: phoneMatch ? phoneMatch[0] : '',
       });
       setFilledByAI(true);
       setExtractionMeta({
@@ -269,7 +277,7 @@ export default function SmartFormPage() {
                 onChange={(e) => setEngine(e.target.value as 'ai' | 'mock')}
                 className="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none text-slate-800 cursor-pointer shadow-2xs"
               >
-                <option value="ai">🧠 Real AI Engine (LLM - Gemini / 9Router)</option>
+                <option value="ai">🧠 Real AI Engine (LLM)</option>
                 <option value="mock">⚡ Local Rule-based / Mock (Regex & Keywords)</option>
               </select>
               <p className="text-[11px] text-slate-500 leading-tight">

@@ -15,61 +15,75 @@ interface ProfileData {
 function extractWithMock(text: string): ProfileData {
   const clean = text.trim();
 
-  // 1. Name
+  // 1. Name: Support Vietnamese patterns ("Tôi là...", "Mình tên là...", "Dũng là một...", "Em là...") as well as English
   let name = '';
-  const nameMatch = clean.match(/(?:i am|i'm|name is|this is|my name is)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/i);
-  if (nameMatch && nameMatch[1]) {
-    name = nameMatch[1].trim();
+  const vnIntroMatch = clean.match(/(?:tôi là|tên tôi là|mình là|mình tên là|em là|anh là)\s+([A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*(?:\s+[A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*){0,4})/i);
+  const enIntroMatch = clean.match(/(?:i am|i'm|name is|this is|my name is)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*){0,4})/i);
+  const subjectIntroMatch = clean.match(/^([A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*(?:\s+[A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]*){0,3})\s+(?:là|is|hiện là|currently)\s+(?:một|a|an)?/i);
+
+  if (vnIntroMatch && vnIntroMatch[1]) {
+    name = vnIntroMatch[1].trim();
+  } else if (enIntroMatch && enIntroMatch[1]) {
+    name = enIntroMatch[1].trim();
+  } else if (subjectIntroMatch && subjectIntroMatch[1]) {
+    name = subjectIntroMatch[1].trim();
   } else {
-    const firstWord = clean.split(/[.,\n]/)[0].match(/[A-Z][a-zA-Z]+/);
-    name = firstWord ? firstWord[0] : 'Professional Candidate';
+    // Fallback: scan for capitalized Vietnamese or English proper name at the beginning of sentence
+    const firstWordMatch = clean.match(/^([A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]+(?:\s+[A-ZÀ-Ỹ][a-zà-ỹA-ZÀ-Ỹ]+)?)/);
+    name = firstWordMatch ? firstWordMatch[1].trim() : 'Candidate';
   }
 
-  // 2. Fixed Known Skills
+  // 2. Comprehensive Known Skills (expanded tech stack list)
   const KNOWN_SKILLS = [
-    'WordPress', 'React', 'Vue', 'Angular', 'Next.js', 'Node.js', 'TypeScript', 'JavaScript',
-    'PHP', 'Python', 'Java', 'Golang', 'Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure',
-    'UI/UX', 'Figma', 'GraphQL', 'REST API', 'API', 'AI', 'Tailwind', 'CSS', 'HTML',
-    'SQL', 'PostgreSQL', 'MongoDB', 'Redis', 'Machine Learning', 'Data Science'
+    'WordPress', 'React', 'Vue', 'Angular', 'Next.js', 'Nuxt', 'Node.js', 'Express',
+    'TypeScript', 'JavaScript', 'PHP', 'Python', 'Java', 'Golang', 'Rust', 'C#', '.NET',
+    'Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure', 'Supabase', 'Firebase', 'PostgreSQL',
+    'MySQL', 'MongoDB', 'Redis', 'GraphQL', 'REST API', 'API', 'Tailwind', 'CSS', 'HTML',
+    'SCSS', 'Sass', 'Figma', 'UI/UX', 'SEO', 'Laravel', 'Django', 'FastAPI', 'n8n',
+    'Git', 'CI/CD', 'Linux', 'AI Agent', 'AI', 'Machine Learning', 'Data Science'
   ];
 
   const detectedSkills: string[] = [];
   KNOWN_SKILLS.forEach((skill) => {
-    const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    // Avoid false positives like "AI" matching inside "email" or "Tailwind"
+    const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|[^a-zA-Z0-9_])${escaped}(?=[^a-zA-Z0-9_]|$)`, 'i');
     if (regex.test(clean)) {
       detectedSkills.push(skill);
     }
   });
 
-  if (detectedSkills.length === 0) {
-    detectedSkills.push('Web Development', 'Problem Solving');
-  }
-
   // 3. Role / Title
-  let title = 'Software Engineer';
-  const titleMatch = clean.match(/(?:a|an)\s+([a-zA-Z\s]+developer|[a-zA-Z\s]+engineer|[a-zA-Z\s]+designer|[a-zA-Z\s]+lead|[a-zA-Z\s]+specialist)/i);
-  if (titleMatch && titleMatch[1]) {
-    title = titleMatch[1].trim().replace(/^./, (c) => c.toUpperCase());
-  } else if (clean.toLowerCase().includes('frontend')) {
-    title = 'Frontend Developer';
-  } else if (clean.toLowerCase().includes('backend')) {
-    title = 'Backend Engineer';
-  } else if (clean.toLowerCase().includes('fullstack')) {
+  let title = '';
+  const titlePattern = clean.match(/(?:là|is|as)\s+(?:một|a|an)?\s*([a-zA-Z0-9\s\-]+?(?:Developer|Engineer|Designer|Lead|Specialist|Architect|Lập trình viên|Chuyên viên|Manager))/i);
+  if (titlePattern && titlePattern[1]) {
+    title = titlePattern[1].trim().replace(/^./, (c) => c.toUpperCase());
+  } else if (/front[\s-]?end/i.test(clean)) {
+    title = 'Front-end Developer';
+  } else if (/back[\s-]?end/i.test(clean)) {
+    title = 'Back-end Engineer';
+  } else if (/full[\s-]?stack/i.test(clean)) {
     title = 'Fullstack Engineer';
+  } else if (/ui[\s\/]?ux/i.test(clean)) {
+    title = 'UI/UX Designer';
+  } else if (/devops/i.test(clean)) {
+    title = 'DevOps Engineer';
+  } else {
+    title = 'Software Engineer';
   }
 
   // 4. Bio
   let bio = clean;
-  if (clean.length > 280) {
-    bio = clean.substring(0, 277) + '...';
+  if (clean.length > 320) {
+    bio = clean.substring(0, 317) + '...';
   }
 
-  // 5. Email & Phone
+  // 5. Email & Phone (Never fabricate dummy email or phone if missing!)
   const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email = emailMatch ? emailMatch[0] : `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+  const email = emailMatch ? emailMatch[0] : '';
 
-  const phoneMatch = clean.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-  const phone = phoneMatch ? phoneMatch[0] : '+1 (555) 382-9102';
+  const phoneMatch = clean.match(/(?:(?:\+84|0)(?:\s|\.)?[3|5|7|8|9]\d{8})|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  const phone = phoneMatch ? phoneMatch[0] : '';
 
   return {
     name,
