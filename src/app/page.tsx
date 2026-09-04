@@ -37,6 +37,13 @@ export default function SmartFormPage() {
   const [inputText, setInputText] = useState(
     "Hi, I'm Mike. I'm a web developer specializing in WordPress and React. I also have experience with APIs and AI tools."
   );
+  const [engine, setEngine] = useState<'ai' | 'mock'>('ai');
+  const [extractionMeta, setExtractionMeta] = useState<{
+    engine: 'ai' | 'mock';
+    latencyMs: number;
+    fallback?: boolean;
+  } | null>(null);
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     title: '',
@@ -69,7 +76,7 @@ export default function SmartFormPage() {
       const response = await fetch('/api/autofill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText }),
+        body: JSON.stringify({ text: inputText, engine }),
       });
 
       const result = await response.json();
@@ -80,12 +87,24 @@ export default function SmartFormPage() {
 
       setFormData(result.data);
       setFilledByAI(true);
-      showToast('success', 'AI successfully parsed and filled your form fields!');
+      setExtractionMeta({
+        engine: result.engine || engine,
+        latencyMs: result.latencyMs || 0,
+        fallback: result.fallback,
+      });
+
+      if (result.engine === 'ai') {
+        showToast('success', `✨ Extracted by Real AI (${result.latencyMs}ms)!`);
+      } else if (result.fallback) {
+        showToast('error', `AI failed, auto-fallback to Local Regex (${result.latencyMs}ms).`);
+      } else {
+        showToast('success', `⚡ Extracted by Local Regex / Mock (${result.latencyMs}ms)!`);
+      }
     } catch (err: any) {
       // Fallback NLP Client-Side
       const clean = inputText.trim();
       const nameMatch = clean.match(/(?:i am|i'm|name is|this is|my name is)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/i);
-      const name = nameMatch ? nameMatch[1] : 'Mike';
+      const name = nameMatch ? nameMatch[1] : 'Professional Candidate';
 
       const KNOWN = ['WordPress', 'React', 'Vue', 'Next.js', 'API', 'AI', 'Node.js', 'TypeScript', 'Tailwind'];
       const skills = KNOWN.filter(s => new RegExp(`\\b${s}\\b`, 'i').test(clean));
@@ -95,10 +114,15 @@ export default function SmartFormPage() {
         title: clean.toLowerCase().includes('frontend') ? 'Frontend Developer' : 'Web Developer',
         bio: clean,
         skills: skills.length > 0 ? skills : ['WordPress', 'React'],
-        email: `${name.toLowerCase()}@example.com`,
+        email: `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
         phone: '+1 (555) 123-4567',
       });
       setFilledByAI(true);
+      setExtractionMeta({
+        engine: 'mock',
+        latencyMs: 15,
+        fallback: true,
+      });
       showToast('success', 'Smart Auto-fill completed using local parser.');
     } finally {
       setIsLoading(false);
@@ -141,6 +165,7 @@ export default function SmartFormPage() {
       phone: '',
     });
     setFilledByAI(false);
+    setExtractionMeta(null);
     showToast('success', 'Form fields reset.');
   };
 
@@ -227,6 +252,33 @@ export default function SmartFormPage() {
               </div>
             </div>
 
+            {/* Engine Selector: Real AI vs Local Mock */}
+            <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center justify-between">
+                <label htmlFor="engine-select" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+                  Extraction Engine:
+                </label>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Dual Mode
+                </span>
+              </div>
+              <select
+                id="engine-select"
+                value={engine}
+                onChange={(e) => setEngine(e.target.value as 'ai' | 'mock')}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none text-slate-800 cursor-pointer shadow-2xs"
+              >
+                <option value="ai">🧠 Real AI Engine (LLM - Gemini / 9Router)</option>
+                <option value="mock">⚡ Local Rule-based / Mock (Regex & Keywords)</option>
+              </select>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                {engine === 'ai'
+                  ? '✨ Real AI extracts semantic nuance, Vietnamese, custom stacks, and clean summaries without inventing data.'
+                  : '⚡ Fast regex parser matching against fixed keyword lists (ideal for offline or fallback demonstration).'}
+              </p>
+            </div>
+
             {/* Action Button: Auto Fill with AI */}
             <button
               onClick={handleAutoFill}
@@ -240,12 +292,16 @@ export default function SmartFormPage() {
               {isLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>AI is thinking & extracting...</span>
+                  <span>
+                    {engine === 'ai' ? 'Real AI is analyzing & extracting...' : 'Local parser is extracting...'}
+                  </span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>✨ Auto Fill with AI</span>
+                  <span>
+                    {engine === 'ai' ? '✨ Extract with Real AI' : '⚡ Extract with Local Regex'}
+                  </span>
                 </>
               )}
             </button>
@@ -254,13 +310,31 @@ export default function SmartFormPage() {
           {/* RIGHT COLUMN: Structured Form */}
           <div className="lg:col-span-7 bg-white p-6 sm:p-7 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
                   Target Profile Form
                 </h2>
-                {filledByAI && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Auto-filled by AI
+                {filledByAI && extractionMeta && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-2xs ${
+                      extractionMeta.engine === 'ai'
+                        ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}
+                  >
+                    {extractionMeta.engine === 'ai' ? (
+                      <>
+                        <Sparkles className="w-3 h-3 text-violet-600" />
+                        <span>Real AI (LLM) • {extractionMeta.latencyMs}ms</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>⚡ Local Regex (Mock) • {extractionMeta.latencyMs}ms</span>
+                        {extractionMeta.fallback && (
+                          <span className="text-[10px] text-amber-900 underline ml-0.5">(fallback)</span>
+                        )}
+                      </>
+                    )}
                   </span>
                 )}
               </div>
